@@ -70,6 +70,14 @@ func main() {
 		log.Info("using exec adapter", "tmpdir", tmpdir)
 		adapter = adapters.NewExecAdapter(tmpdir)
 
+	case "docker":
+		log.Info("using docker adapter")
+		var err error
+		adapter, err = adapters.NewDockerAdapter()
+		if err != nil {
+			log.Crit("error starting docker adapter", "err", err)
+		}
+
 	default:
 		log.Crit(fmt.Sprintf("unknown node adapter %q", *adapterType))
 	}
