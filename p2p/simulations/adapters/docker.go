@@ -73,17 +73,24 @@ type ManagementService struct {
 	Config     DockerNodeConfig
 }
 
-// Configure is used by the simulation framework to send the p2p
-// configuration to the remote docker nodes.
-func (svc *ManagementService) Configure(config DockerNodeConfig) error {
-	svc.Config = config
-	svc.waitConfig.Done()
+// NewManagementService returns a ManagementService
+func NewManagementService() *ManagementService {
+	s := &ManagementService{}
+	s.waitConfig.Add(1)
+	return s
+}
+
+// Configure receives the node configuration. This is normally used by the simulation framework
+// to send the nodes p2p configuration
+func (s *ManagementService) Configure(config DockerNodeConfig) error {
+	s.Config = config
+	s.waitConfig.Done()
 	return nil
 }
 
-func (svc *ManagementService) waitForConfig() {
-	svc.waitConfig.Add(1)
-	svc.waitConfig.Wait()
+// waitForConfig can be used to wait for the simulation framework to call Configure
+func (s *ManagementService) waitForConfig() {
+	s.waitConfig.Wait()
 }
 
 type simpleWSDialer struct{}
@@ -103,7 +110,7 @@ func execDockerNode() {
 
 	// start a management websocket server to deal with incoming commands
 	mgmtaddr := fmt.Sprintf("0.0.0.0:%d", dockerManagementPort)
-	mgmtService := &ManagementService{}
+	mgmtService := NewManagementService()
 	mgmtApis := []rpc.API{
 		{
 			Namespace: "mgmt",
@@ -120,8 +127,6 @@ func execDockerNode() {
 	defer l.Close()
 
 	// Wait for configuration
-	// TODO: Use channels + timeout?
-
 	log.Info("waiting for configuration")
 	mgmtService.waitForConfig()
 	log.Info("got configuration")
@@ -338,7 +343,6 @@ func (n *DockerNode) ServeRPC(clientConn net.Conn) error {
 
 // Start starts the node with the given snapshots
 func (n *DockerNode) Start(snapshots map[string][]byte) (err error) {
-	// TODO: check if node is already running?
 	defer func() {
 		if err != nil {
 			log.Error("Stopping node due to errors", "err", err)
@@ -456,7 +460,6 @@ func (n *DockerNode) Start(snapshots map[string][]byte) (err error) {
 // Stop stops the node
 func (n *DockerNode) Stop() error {
 	dockercli := n.adapter.client
-	// TODO: check first if its running ?
 
 	var stopTimeout = 30 * time.Second
 	err := dockercli.ContainerStop(context.Background(), n.containerName(), &stopTimeout)
